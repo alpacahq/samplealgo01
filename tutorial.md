@@ -445,14 +445,23 @@ may not want to keep your computer up and running all the time,
 and you don't even want to worry about monitoring your computer
 being alive or not.
 
+You can borrow a machine from AWS or one of the cloud providiers, which costs a few dollars a month.
+The smallest instance should be fine for this algo since it doesn't do much,
+but you have to set up the environment, install dependencies etc.
+Alternatively, you can break the infinite loop so it runs the main logic and exits,
+so that you can run this in AWS Lambda or some sort of cron-job service,
+since this algo does not need to watch the positions all the time. But if
+you want to add such logic to this, it will be a bit hard with cron style.
+
 ### Heroku free
-You can borrow a machine from AWS or one of the cloud providiers,
-but Heroku offers this free-tier that can run this simple program
+Heroku offers this free-tier that can run this simple program
 for you.  What is important to understand is that you need to
 set it up as a "worker" process since this is a long-running process.
 
 First, set up your heroku account if you haven't. Then create an
 App in the account.
+
+
 
 If everything works fine, you will see some log output in the
 log output, similar to this.
