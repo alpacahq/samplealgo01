@@ -313,6 +313,7 @@ logic once a day.  Just put the `get_orders()` and `trade()` in the middle
 of the main loop.
 
 ```
+def main():
     done = None
     logging.info('start running')
     while True:
