@@ -461,7 +461,28 @@ set it up as a "worker" process since this is a long-running process.
 First, set up your heroku account if you haven't. Then create an
 App in the account.
 
+<img src="https://cdn.pbrd.co/images/HrJxZNGQ.png" style="max-width:416px">
 
+The next screen asks for the app name which has to be unique so name it as you want.
+
+![Name App](https://cdn.pbrd.co/images/HrJzskv.png)
+
+Follow Heroku's instructions to set up the command line tool so you can push your code
+to Heroku.  You can either set up a github account that links to this Heroku App,
+or you can install the `heroku` command line tool and add `heroku` remote to
+your local github account.
+
+Make sure you configure your free dyno for the worker.
+
+The last thing to do is to configure the environment variables to give
+your Alpaca APY key info.  Go to the `Setting` tab and add the
+environment variables.
+
+![Configure Env](https://cdn.pbrd.co/images/HrJAdmb.png)
+
+If you run it correctly, you can see the console log from here.
+
+![View Logs](https://cdn.pbrd.co/images/HrJzdqo.png)
 
 If everything works fine, you will see some log output in the
 log output, similar to this.
