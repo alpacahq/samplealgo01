@@ -438,6 +438,14 @@ $ python playground.py
 
 which should pop up your browser to start with.
 
+Jupyter is particularly easy for visualizing the result.
+In one test, we got this result (blue=algo, orange=SPY)
+between 10 days prior to 6/25/2018
+
+![](https://cdn.pbrd.co/images/HrJEchQ.png)
+
+Not too bad.  Of course, you should check your result.
+
 
 ## Deployment
 The algo has to run live to trade. The question is, where? You
