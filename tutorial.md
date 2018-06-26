@@ -59,6 +59,7 @@ happen.  Since we want to check the daily movement of our universe,
 check the time at Eastern time zone and do something in the morning.
 
 ```py
+def main():
     done = None
     logging.info('start running')
     while True:
