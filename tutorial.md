@@ -113,10 +113,10 @@ There are some checks to adjust what to specify for `end_dt` parameter
 since we want to make sure this function always returns the prices
 up to yesterday, even if you call it in the market hours.
 If you call this like `prices(['AAPL'])`, you will get a dict object
-with a key 'AAPL' to AAPL's price data in a DataFrame object. The pytho
+with a key 'AAPL' to AAPL's price data in a DataFrame object. The python
 API from SDK is `list_bars()`.
 
-### Rank stocks by price - EMA difference
+### Rank stocks by (price - EMA) difference
 It is hard to define what is "the most oversold" stocks among a number of
 stocks, but let's assume the difference ratio between the price and EMA
 indicates some sort of drop here, as short-term EMA can converge close to
@@ -246,7 +246,7 @@ so you don't have to worry too much if the order doesn't fill.
 def trade(orders, wait=30):
     '''This is where we actually submit the orders and wait for them to fill.
     This is an important step since the orders aren't filled atomically,
-    which means if your buys come first with littme cash left in the account,
+    which means if your buys come first with little cash left in the account,
     the buy orders will be bounced.  In order to make the transition smooth,
     we sell first and wait for all the sell orders to fill and then submit
     buy orders.
@@ -312,7 +312,7 @@ OK, finally we have all pieces ready, we just need to execute the main
 logic once a day.  Just put the `get_orders()` and `trade()` in the middle
 of the main loop.
 
-```
+```py
 def main():
     done = None
     logging.info('start running')
