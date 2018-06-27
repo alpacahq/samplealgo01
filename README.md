@@ -10,6 +10,13 @@ the belief is that the price should be recovered to some extent.
 
 ## How to run
 
+Set up your API key in environment variables first.
+
+```
+$ export APCA_API_KEY_ID=xxx
+$ export APCA_API_SECRET_KEY=yyy
+```
+
 The only dependency is alpaca-trade-api module.  You can set up the environment by
 pipenv.  If python 3 and the dependency is ready,
 
@@ -19,7 +26,7 @@ $ python main.py
 
 That's it.
 
-Also, this repository is set up for Heroku.  If you have Heroku account, create a new
+Also, this repository is set up for Heroku.  If you have a Heroku account, create a new
 app and run this as an application. It is only one worker app so make sure you set up
 worker type app.
 
