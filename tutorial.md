@@ -12,7 +12,7 @@ The idea behind this algorithm is this.
 - We build a portfolio with what are oversold, trying to capture mean reversion - We use EMA (exponential moving average) to measure the magnitude of oversold
 - We rebuild our portfolio once a day in the morning
 - We maintain reasonable size of positions (~5 stocks) at a time
-- We expect one of the positions get rekt since the stocks are within SP500 with enough volume
+- We don't expect positions get rekt too much since the stocks are within SP500 with enough volume
 - Therefore, the risk should be low, also there should be some correlation with SP500
 
 In short, it is one of the mean reversion strategies that tries to buy
