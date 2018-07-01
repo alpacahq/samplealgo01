@@ -1,30 +1,27 @@
 # Step-by-step Tutorial
 The purpose of this tutorial is to explain the general flow of
-building your first algorithm by going through this sample algo,
+building your first algorithm by going through an example,
 so that you get a sense of what is needed.  It is completely free
-to run this algorithm as-is if you like, or modify for your own needs,
-just learn how you usually write an algo from scratch.
+to run this algorithm as-is if you like, or modify for your own needs.
+This is just for you to learn how you usually write an algo from scratch.
 
 ## Algorithm Idea
-The idea behind this algorithm is this.
+The idea behind the sample algorithm is this:
 
-- We trade stocks within SP500
-- We build a portfolio with what are oversold, trying to capture mean reversion - We use EMA (exponential moving average) to measure the magnitude of oversold
+- We trade stocks within the S&P 500
+- We build a portfolio with securities that we believe are oversold, trying to capture mean reversion - We use exponential moving average (EMA) to measure the magnitude of oversold
 - We rebuild our portfolio once a day in the morning
 - We maintain reasonable size of positions (~5 stocks) at a time
-- We don't expect positions get rekt too much since the stocks are within SP500 with enough volume
-- Therefore, the risk should be low, also there should be some correlation with SP500
+- Due to the liquidity and generally low volatility of S&P 500 consituents, we do not expect positions to have highly volatile returns
+- Therefore, the risk should be low and there should be some correlation with S&P 500
 
-In short, it is one of the mean reversion strategies that tries to buy
-stocks when they drop, hoping it will come back soon. It shuffles the portfolio
-by ranking the most oversold stocks and keep the top ranked stocks at any point, and when the positions come back or don't move much, kick them out
-to get fresh oversold stocks in.
+In short, this strategy hopes to capitlaize on some of the random-walk fluctuations in stock prices by placing orders to buy when price strays too far below the EMA, hoping it will come back soon. It shuffles the portfolio by ranking the most oversold stocks and keeping the top-ranked stocks at any point. When the positions revert to the mean or don't move much at all, we also kick them out to get fresh oversold stocks in.
 
-Now, we are going through the steps to write this algorithm.
+Now, we are going to go through the steps to write this algorithm.
 
 ## Starting point
 
-Firs thing first, you need to have main entry point, which we call `main()`.
+First thing first, you need to have a main entry point, which we call `main()`.
 
 ```py
 def main():
@@ -37,26 +34,25 @@ if __name__ == '__main__':
 
 ## Setting up our Universe
 
-There are more than 7,000 tradable symbols in the US equities today, but
-we do not care small companies and ETFs here to avoid much risk.  We stick
-to SP500 stocks which you could potentially obtain from different sources,
-even dynamically refreshing it while it's running, but here we just
-hard-code it in the source code.
+There are more than 7,000 tradable symbols for US equities today, but
+we do not care about small companies and ETFs here to avoid too much risk. We stick
+to S&P 500 stocks, which can be obtained from different sources and referenced dynamically,
+but here, we just hard-code it in the source code.
 
 ```py
 # SP500
 Universe = ['MMM', 'ABT', 'ABBV', 'ACN', 'ATVI', 'AYI', 'ADBE', ..., 'ZTS']
 ```
 
-and put it in a file called `universe.py`.
+We will store the security list in a file called `universe.py`.
 
 ## Infinite loop
 
 Now, let's start coding the logic! Most of the algorithms watch
-the market movement and do some actions based
-on the conditions, so it needs to run infinitely unless any problems
-happen.  Since we want to check the daily movement of our universe,
-check the time at Eastern time zone and do something in the morning.
+market movements and do some actions based on specific
+conditions. For this to occur, our algorithm needs to run infinitely. 
+Since we want to check the daily movement of our universe, we will
+check the time (Eastern US, for consistency with market time) and do something in the morning.
 
 ```py
 def main():
@@ -78,23 +74,23 @@ def main():
         time.sleep(1)
 ```
 
-As you can see in the code, you check the day of the week (mon-fri) and
+As you can see in the code, this algo checks the day of the week (Mon-Fri) and
 time if it is after the market open (9:30am ET). If so, do something
 interesting.  You can use Alpaca's `get_clock()` API to know more precise
-time at the serverside, and check the market open days from `get_calendar()` as well,
-but let me keep it simple here.
+time at the serverside. Also, Alpaca provides a way to check days that the market is open
+from `get_calendar()` as well, but we will keep it simple here.
 The `done` flag is set to the date string so we make sure
 we do stuff only once a day. Depending on your idea, you may want to
 kick off your logic every minute, every hour, every Monday, or whatever you want.
 
 ## Main logic
-This is the fun part since this is the core of our algorithms. Remember,
+This is the fun part since this is the core of our algorithm. Remember,
 our algorithm calculates EMA to find most oversold stocks in the universe.
 
 ### Get the price data
-First, we want to get the price data to calculate EMA, and we use Alpaca
-API. Let's call this function `prices()` which takes a parameter
-symbols to indicate which price data to get.
+First, we want to get price data to calculate the EMA, and we use Alpaca
+API to do this. Let's call this function `prices()` which takes a parameter,
+symbols, to indicate which price data to get.
 
 ```py
 def prices(symbols):
@@ -111,16 +107,16 @@ def prices(symbols):
 
 There are some checks to adjust what to specify for `end_dt` parameter
 since we want to make sure this function always returns the prices
-up to yesterday, even if you call it in the market hours.
+up to yesterday, even if you call it during market hours.
 If you call this like `prices(['AAPL'])`, you will get a dict object
 with a key 'AAPL' to AAPL's price data in a DataFrame object. The python
 API from SDK is `list_bars()`.
 
 ### Rank stocks by (price - EMA) difference
-It is hard to define what is "the most oversold" stocks among a number of
+It is hard to define which stocks are "the most oversold" among a number of
 stocks, but let's assume the difference ratio between the price and EMA
 indicates some sort of drop here, as short-term EMA can converge close to
-the price but if it diverges a lot, that means the price changed a
+the price but if it diverges a lot, that means the price changed
 siginificantly in a short period of time. In addition to that, we need to
 normalize the value so we can compare the significance in a fair manner.
 
@@ -142,16 +138,16 @@ def calc_scores(dfs, dayindex=-1):
     return sorted(diffs.items(), key=lambda x: x[1])
 ```
 
-We use DataFrame's `ewm()` method to calculate EMA here, but if you want to
-use a different technical indicator to find oversold stocks, you could
-use `ta-lib` that supports more different inicators. Please note that
-`diff` is the ratio between the last price and 10 days EMA to compare,
-and this value can go from negative to positive, with negative indicating
-the price dropped at the last day.
+We use pandas's `ewm()` method to calculate the EMA on a DataFrame here,
+but if you want to use a different technical indicator to find oversold stocks,
+you could use the `ta-lib` package, which supports a wider variety of inicators.
+Please note that `diff` is the difference between the last price and 10-day EMA
+as a percentage of last price. This value can be negative or positive,
+with a negative diff indicating the price dropped over the last day.
 
 
 ### Build orders
-Now that we got the ranked list of stocks in hand, it's time to decide
+Now that we have the ranked list of stocks in hand, it's time to decide
 what to buy and what to sell. We want to keep the top 5 oversold stocks
 in our portfolio, and it's easy to build 5 buy orders if you start from
 zero, but we need to do a bit of work here to check the current holdings
@@ -232,9 +228,9 @@ Finally we get the orders to transition from current portfolio to the
 desired portfolio from this function.
 
 ### Place the orders!
-OK, finally let's execute them.  In this algorithm code, we separate
+OK, finally let's execute them. In this algorithm, we separate
 the logic of calculating necessary orders and actual order submissions
-so we can easily test the code, but it is possible to mix these logics too.
+so we can easily test the code, but it is possible to mix that logic too.
 
 The main concern you have here is that the buy orders may get rejected
 if you cash is not enough, so you need to wait for the sell orders to go
@@ -333,21 +329,21 @@ def main():
 
 
 With the default parameters you saw in the example, it trades with
-- SP500 stocks
+- S&P 500 stocks
 - $500 cash
 - 5 positions at max
-- less than 100 dollars for each position
+- Less than 100 dollars for each position
 
 And you can adjust it based on your needs, but this should be a good
 basis.  Also, note that this algo will not require day-trading margin call
 ($25k) since the positions are held at least for 1 day.
 
-It is very hard to try this type of shuffling algorithm without commission-free
-trading platform with this size of cash, since a few dollar commission will kill the cash balance pretty quickly. 
+It is very hard to try this type of shuffling algorithm without a commission-free
+trading platform with this size of cash, since a few dollars of commission will kill the cash balance pretty quickly. 
 
 
 ## Backtesting
-OK all look good, it's ready to run and see some results in live, but
+OK all looks good, it's ready to run and see some results in live trading, but
 you may want to check the performance beforehand, even though this is
 something already tested by someone. Fair enough.
 
@@ -357,7 +353,7 @@ with some reasonable assumptions.
 
 The code itself is beyond the scope of this tutorial, but we have built
 one simple simulation code for this algorithm.  Please take a look at
-`btest.py` code.  What you want to run is `simulate()` function that returns
+`btest.py` code.  What you want to run is the `simulate()` function that returns
 an `account` object holding the trading result. What you want to see
 is the `account.performance` property which is a DataFrame object with
 the algorithm performance and benchmark result.
@@ -403,14 +399,14 @@ def simulate(days=10, equity=500, position_size=100,
 ```
 
 Pretty simple, and of course there are many things to worry if you really
-care, such as SP500 universe change etc, but this can be enough to
+care, such as an S&P 500 universe change, but this can be enough to
 validate our idea. Also, you may notice the function has default
 parameters that you can change around to simulate different scenarios.
 
 
 ## Set up the enviornment
 Yes we forgot to talk about the environment first. This repository is
-set up using `pipenv` which is becoming the de-fact in python today
+set up using `pipenv` which is becoming the de-facto standard in python today,
 as it's something sitting on top of `pip`, `virtualenv` and `pyenv`
 that's easier to use. If you haven't installed `pipenv`, we'd
 recommend to try it this time. Once you have `pipenv`, it's as simple as
@@ -425,7 +421,7 @@ then you will be in the environment with all dependencies.
 You can take a look at the
 [Pipfile](./Pipfile) file in this directory but all we need
 is to install the `alpaca-trade-api` package which comes with `pandas`.
-If you prefer running backtesting in Jupyter notebook environment,
+If you prefer running backtesting in a Jupyter notebook environment,
 install `jupyter` and `matplotlib` by
 
 ```
@@ -446,11 +442,11 @@ between 10 days prior to 6/25/2018
 
 ![](https://cdn.pbrd.co/images/HrJEchQ.png)
 
-Not too bad.  Of course, you should check your result.
+Not too bad. Of course, you should check your result.
 
 
 ## Deployment
-The algo has to run live to trade. The question is, where? You
+This algo has to run live to trade. The question is, where? You
 may not want to keep your computer up and running all the time,
 and you don't even want to worry about monitoring your computer
 being alive or not.
@@ -464,11 +460,12 @@ since this algo does not need to watch the positions all the time. But if
 you want to add such logic to this, it will be a bit hard with cron style.
 
 ### Heroku free
-Heroku offers this free-tier that can run this simple program
-for you.  What is important to understand is that you need to
+Heroku, a cloud platform designed with app hosting in mind,
+offers a free tier that can run this simple program for you.
+What is important to understand is that you need to
 set it up as a "worker" process since this is a long-running process.
 
-First, set up your heroku account if you haven't. Then create an
+First, set up your heroku account if you haven't. Then, create an
 App in the account.
 
 ![Create App](https://cdn.pbrd.co/images/HrJxZNGQ.png)
