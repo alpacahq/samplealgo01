@@ -51,7 +51,7 @@ class Account(object):
     def fill_order(self, order, price, timestamp):
         symbol = order['symbol']
         if order['side'] == 'buy':
-            shares = order['shares']
+            shares = order['qty']
             if shares * price > self.cash:
                 print(f'{timestamp}: no cash available for {symbol}')
                 return
