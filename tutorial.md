@@ -88,8 +88,19 @@ This is the fun part since this is the core of our algorithm. Remember,
 our algorithm calculates EMA to find most oversold stocks in the universe.
 
 ### Get the price data
-First, we want to get price data to calculate the EMA, and we use Alpaca
-API to do this. Let's call this function `prices()` which takes a parameter,
+First, we want to get price data to calculate the EMA, and we use Polygon 
+API to do this. Alll Alpaca customers are authorized to use Polygon's stock
+data with the same API key Alpaca issues. All the complex matters are abstracted
+inside the SDK, so you can simply call on the `polygon` property under the REST
+object. For example,
+
+```py
+api.polygon.historic_agg('day', 'AAPL').df
+```
+
+this will give you the historical daily price data for AAPL.
+
+Let's call this function `prices()` which takes a parameter,
 symbols, to indicate which price data to get.
 
 ```py
@@ -98,19 +109,52 @@ def prices(symbols):
     now = pd.Timestamp.now(tz=NY)
     end_dt = now
     if now.time() >= pd.Timestamp('09:30', tz=NY).time():
-        end_dt = now - pd.Timedelta(now.strftime('%H:%M:%S')) - pd.Timedelta('1 minute')
-    result = api.list_bars(symbols, '1D', end_dt=end_dt.isoformat(), limit=1200)
-    return {
-        ab.symbol: ab.df for ab in result
-    }
+        end_dt = now - \
+            pd.Timedelta(now.strftime('%H:%M:%S')) - pd.Timedelta('1 minute')
+    return _get_polygon_prices(symbols, end_dt)
 ```
 
 There are some checks to adjust what to specify for `end_dt` parameter
 since we want to make sure this function always returns the prices
 up to yesterday, even if you call it during market hours.
 If you call this like `prices(['AAPL'])`, you will get a dict object
-with a key 'AAPL' to AAPL's price data in a DataFrame object. The python
-API from SDK is `list_bars()`.
+with a key 'AAPL' to AAPL's price data in a DataFrame object.
+
+And this `_get_polygon_prices()` will look like:
+
+```py
+def _get_polygon_prices(symbols, end_dt, max_workers=5):
+    '''Get the map of DataFrame price data from polygon, in parallel.'''
+
+    start_dt = end_dt - pd.Timedelta('1200 days')
+    _from = start_dt.strftime('%Y-%-m-%-d')
+    to = end_dt.strftime('%Y-%-m-%-d')
+
+    def historic_agg(symbol):
+        return api.polygon.historic_agg(
+            'day', symbol, _from=_from, to=to).df.sort_index()
+
+    with concurrent.futures.ThreadPoolExecutor(
+            max_workers=max_workers) as executor:
+        results = {}
+        future_to_symbol = {
+            executor.submit(
+                historic_agg,
+                symbol): symbol for symbol in symbols}
+        for future in concurrent.futures.as_completed(future_to_symbol):
+            symbol = future_to_symbol[future]
+            try:
+                results[symbol] = future.result()
+            except Exception as exc:
+                logger.warning(
+                    '{} generated an exception: {}'.format(
+                        symbol, exc))
+        return results
+```
+
+The use of `concurrent.futures` is to accelerate cross-symbol data fetch
+by parallelizing the API calls, but it's fine to just call polygon API
+sequentially too.
 
 ### Rank stocks by (price - EMA) difference
 It is hard to define which stocks are "the most oversold" among a number of

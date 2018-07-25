@@ -18,7 +18,8 @@ def _dry_run_submit(*args, **kwargs):
 # api.submit_order =_dry_run_submit
 
 
-def get_polygon_prices(symbols, end_dt, max_workers=5):
+def _get_polygon_prices(symbols, end_dt, max_workers=5):
+    '''Get the map of DataFrame price data from polygon, in parallel.'''
 
     start_dt = end_dt - pd.Timedelta('1200 days')
     _from = start_dt.strftime('%Y-%-m-%-d')
@@ -53,7 +54,7 @@ def prices(symbols):
     if now.time() >= pd.Timestamp('09:30', tz=NY).time():
         end_dt = now - \
             pd.Timedelta(now.strftime('%H:%M:%S')) - pd.Timedelta('1 minute')
-    return get_polygon_prices(symbols, end_dt)
+    return _get_polygon_prices(symbols, end_dt)
 
 
 def calc_scores(dfs, dayindex=-1):
