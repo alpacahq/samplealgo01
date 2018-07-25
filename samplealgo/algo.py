@@ -2,6 +2,7 @@ import alpaca_trade_api as tradeapi
 import pandas as pd
 import time
 import logging
+import concurrent.futures
 
 from .universe import Universe
 
@@ -17,6 +18,34 @@ def _dry_run_submit(*args, **kwargs):
 # api.submit_order =_dry_run_submit
 
 
+def get_polygon_prices(symbols, end_dt, max_workers=5):
+
+    start_dt = end_dt - pd.Timedelta('1200 days')
+    _from = start_dt.strftime('%Y-%-m-%-d')
+    to = end_dt.strftime('%Y-%-m-%-d')
+
+    def historic_agg(symbol):
+        return api.polygon.historic_agg(
+            'day', symbol, _from=_from, to=to).df.sort_index()
+
+    with concurrent.futures.ThreadPoolExecutor(
+            max_workers=max_workers) as executor:
+        results = {}
+        future_to_symbol = {
+            executor.submit(
+                historic_agg,
+                symbol): symbol for symbol in symbols}
+        for future in concurrent.futures.as_completed(future_to_symbol):
+            symbol = future_to_symbol[future]
+            try:
+                results[symbol] = future.result()
+            except Exception as exc:
+                logger.warning(
+                    '{} generated an exception: {}'.format(
+                        symbol, exc))
+        return results
+
+
 def prices(symbols):
     '''Get the map of prices in DataFrame with the symbol name key.'''
     now = pd.Timestamp.now(tz=NY)
@@ -24,14 +53,7 @@ def prices(symbols):
     if now.time() >= pd.Timestamp('09:30', tz=NY).time():
         end_dt = now - \
             pd.Timedelta(now.strftime('%H:%M:%S')) - pd.Timedelta('1 minute')
-    result = api.list_bars(
-        symbols,
-        '1D',
-        end_dt=end_dt.isoformat(),
-        limit=1200)
-    return {
-        ab.symbol: ab.df for ab in result
-    }
+    return get_polygon_prices(symbols, end_dt)
 
 
 def calc_scores(dfs, dayindex=-1):
