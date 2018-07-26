@@ -115,22 +115,22 @@ def simulate(days=10, equity=500, position_size=100,
     '''
     account = Account(cash=equity)
 
-    dfs = algo.prices(algo.Universe)
+    price_map = algo.prices(algo.Universe)
 
-    bench_df = dfs.get(bench)
+    bench_df = price_map.get(bench)
     if bench_df is None:
         bench_df = algo.prices([bench])[bench]
     account.set_benchmark(bench_df)
 
     orders = []
-    tindex = dfs['AAPL'].index
+    tindex = price_map['AAPL'].index
     account.update({}, tindex[-days - 1])
     api = SimulationAPI(account)
     for t in tindex[-days:]:
         print(t)
         snapshot = {
             symbol: df[df.index < t]
-            for symbol, df in dfs.items()
+            for symbol, df in price_map.items()
             # sanity check to exclude stale prices
             if t - df[df.index < t].index[-1] < pd.Timedelta('2 days')}
 
@@ -142,7 +142,7 @@ def simulate(days=10, equity=500, position_size=100,
         # right after the market opens
         for order in orders:
             # buy at the open
-            price = dfs[order['symbol']].open[t]
+            price = price_map[order['symbol']].open[t]
             account.fill_order(order, price, t)
 
         account.update(snapshot, t)

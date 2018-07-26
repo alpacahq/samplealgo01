@@ -165,13 +165,13 @@ siginificantly in a short period of time. In addition to that, we need to
 normalize the value so we can compare the significance in a fair manner.
 
 ```py
-def calc_scores(dfs, dayindex=-1):
+def calc_scores(price_map, dayindex=-1):
     '''Calculate scores based on the indicator and 
     return the sorted result.
     '''
     diffs = {}
     param = 10
-    for symbol, df in dfs.items():
+    for symbol, df in price_map.items():
         if len(df.close.values) <= param:
             continue
         ema = df.close.ewm(span=param).mean()[dayindex]
@@ -198,20 +198,20 @@ zero, but we need to do a bit of work here to check the current holdings
 and take some diff from the targeted portfolio and current.
 
 ```py
-def get_orders(api, dfs, position_size=100, max_positions=5):
+def get_orders(api, price_map, position_size=100, max_positions=5):
     '''Calculate the scores with the universe to build the optimal
     portfolio as of today, and extract orders to transition from
     current portfolio to the calculated state.
     '''
     # rank the stocks based on the indicators.
-    ranked = calc_scores(dfs)
+    ranked = calc_scores(price_map)
     to_buy = set()
     to_sell = set()
     account = api.get_account()
     # take the top one twentieth out of ranking,
     # excluding stocks too expensive to buy a share
     for symbol, _ in ranked[:len(ranked) // 20]:
-        price = float(dfs[symbol].close.values[-1])
+        price = float(price_map[symbol].close.values[-1])
         if price > float(account.cash):
             continue
         to_buy.add(symbol)
@@ -244,7 +244,7 @@ def get_orders(api, dfs, position_size=100, max_positions=5):
     for symbol in to_buy:
         if max_to_buy <= 0:
             break
-        shares = position_size // float(dfs[symbol].close.values[-1])
+        shares = position_size // float(price_map[symbol].close.values[-1])
         if shares == 0.0:
             continue
         orders.append({
@@ -360,8 +360,8 @@ def main():
         now = pd.Timestamp.now(tz=NY)
         if 0 <= now.dayofweek <= 4 and done != now.strftime('%Y-%m-%d'):
             if now.time() >= pd.Timestamp('09:30', tz=NY).time():
-                dfs = prices(Universe)
-                orders = get_orders(api, dfs)
+                price_map = prices(Universe)
+                orders = get_orders(api, price_map)
                 trade(orders)
                 # flag it as done so it doesn't work again for the day
                 # TODO: this isn't tolerant to the process restart
@@ -409,21 +409,21 @@ def simulate(days=10, equity=500, position_size=100,
              max_positions=5, bench='SPY'):
     account = Account(cash=equity)
 
-    dfs = algo.prices(algo.Universe)
+    price_map = algo.prices(algo.Universe)
 
-    bench_df = dfs.get(bench)
+    bench_df = price_map.get(bench)
     if bench_df is None:
         bench_df = algo.prices([bench])[bench]
     account.set_benchmark(bench_df)
 
     orders = []
-    tindex = dfs['AAPL'].index
+    tindex = price_map['AAPL'].index
     account.update({}, tindex[-days-1])
     api = SimulationAPI(account)
     for t in tindex[-days:]:
         print(t)
         snapshot = {symbol: df[df.index < t]
-            for symbol, df in dfs.items()
+            for symbol, df in price_map.items()
             if t - df[df.index < t].index[-1] < pd.Timedelta('2 days')}
 
         # before market opens
@@ -434,7 +434,7 @@ def simulate(days=10, equity=500, position_size=100,
         # right after the market opens
         for order in orders:
             # buy at the open
-            price = dfs[order['symbol']].open[t]
+            price = price_map[order['symbol']].open[t]
             account.fill_order(order, price, t, position_dollar)
 
         account.update(snapshot, t)

@@ -57,13 +57,13 @@ def prices(symbols):
     return _get_polygon_prices(symbols, end_dt)
 
 
-def calc_scores(dfs, dayindex=-1):
+def calc_scores(price_map, dayindex=-1):
     '''Calculate scores based on the indicator and
     return the sorted result.
     '''
     diffs = {}
     param = 10
-    for symbol, df in dfs.items():
+    for symbol, df in price_map.items():
         if len(df.close.values) <= param:
             continue
         ema = df.close.ewm(span=param).mean()[dayindex]
@@ -74,20 +74,20 @@ def calc_scores(dfs, dayindex=-1):
     return sorted(diffs.items(), key=lambda x: x[1])
 
 
-def get_orders(api, dfs, position_size=100, max_positions=5):
+def get_orders(api, price_map, position_size=100, max_positions=5):
     '''Calculate the scores with the universe to build the optimal
     portfolio as of today, and extract orders to transition from
     current portfolio to the calculated state.
     '''
     # rank the stocks based on the indicators.
-    ranked = calc_scores(dfs)
+    ranked = calc_scores(price_map)
     to_buy = set()
     to_sell = set()
     account = api.get_account()
     # take the top one twentieth out of ranking,
     # excluding stocks too expensive to buy a share
     for symbol, _ in ranked[:len(ranked) // 20]:
-        price = float(dfs[symbol].close.values[-1])
+        price = float(price_map[symbol].close.values[-1])
         if price > float(account.cash):
             continue
         to_buy.add(symbol)
@@ -120,7 +120,7 @@ def get_orders(api, dfs, position_size=100, max_positions=5):
     for symbol in to_buy:
         if max_to_buy <= 0:
             break
-        shares = position_size // float(dfs[symbol].close.values[-1])
+        shares = position_size // float(price_map[symbol].close.values[-1])
         if shares == 0.0:
             continue
         orders.append({
@@ -200,8 +200,8 @@ def main():
         now = pd.Timestamp.now(tz=NY)
         if 0 <= now.dayofweek <= 4 and done != now.strftime('%Y-%m-%d'):
             if now.time() >= pd.Timestamp('09:30', tz=NY).time():
-                dfs = prices(Universe)
-                orders = get_orders(api, dfs)
+                price_map = prices(Universe)
+                orders = get_orders(api, price_map)
                 trade(orders)
                 # flag it as done so it doesn't work again for the day
                 # TODO: this isn't tolerant to the process restart
