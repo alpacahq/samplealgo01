@@ -197,15 +197,15 @@ def main():
     done = None
     logging.info('start running')
     while True:
-        now = pd.Timestamp.now(tz=NY)
-        if 0 <= now.dayofweek <= 4 and done != now.strftime('%Y-%m-%d'):
-            if now.time() >= pd.Timestamp('09:30', tz=NY).time():
-                price_map = prices(Universe)
-                orders = get_orders(api, price_map)
-                trade(orders)
-                # flag it as done so it doesn't work again for the day
-                # TODO: this isn't tolerant to the process restart
-                done = now.strftime('%Y-%m-%d')
-                logger.info(f'done for {done}')
+        clock = api.get_clock()
+        now = clock.timestamp
+        if clock.is_open and done != now.strftime('%Y-%m-%d'):
+            price_map = prices(Universe)
+            orders = get_orders(api, price_map)
+            trade(orders)
+            # flag it as done so it doesn't work again for the day
+            # TODO: this isn't tolerant to the process restart
+            done = now.strftime('%Y-%m-%d')
+            logger.info(f'done for {done}')
 
         time.sleep(1)
