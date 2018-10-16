@@ -197,6 +197,8 @@ def main():
     done = None
     logging.info('start running')
     while True:
+        # clock API returns the server time including
+        # the boolean flag for market open
         clock = api.get_clock()
         now = clock.timestamp
         if clock.is_open and done != now.strftime('%Y-%m-%d'):
