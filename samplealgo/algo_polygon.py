@@ -2,6 +2,7 @@ import alpaca_trade_api as tradeapi
 import pandas as pd
 import time
 import logging
+import concurrent.futures
 
 from .universe import Universe
 
@@ -9,11 +10,7 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.DEBUG)
 
 NY = 'America/New_York'
-api = tradeapi.REST(
-    key_id='REPLACEME',
-    secret_key='REPLACEME',
-    base_url='https://paper-api.alpaca.markets'
-)
+api = tradeapi.REST()
 
 
 def _dry_run_submit(*args, **kwargs):
@@ -21,33 +18,33 @@ def _dry_run_submit(*args, **kwargs):
 # api.submit_order =_dry_run_submit
 
 
-def _get_prices(symbols, end_dt, max_workers=5):
-    '''Get the map of DataFrame price data from Alpaca's data API.'''
+def _get_polygon_prices(symbols, end_dt, max_workers=5):
+    '''Get the map of DataFrame price data from polygon, in parallel.'''
 
-    start_dt = end_dt - pd.Timedelta('50 days')
-    start = start_dt.strftime('%Y-%-m-%-d')
-    end = end_dt.strftime('%Y-%-m-%-d')
+    start_dt = end_dt - pd.Timedelta('1200 days')
+    _from = start_dt.strftime('%Y-%-m-%-d')
+    to = end_dt.strftime('%Y-%-m-%-d')
 
-    def get_barset(symbols):
-        return api.get_barset(
-            symbols,
-            'day',
-            limit = 50,
-            start=start,
-            end=end
-        )
+    def historic_agg(symbol):
+        return api.polygon.historic_agg(
+            'day', symbol, _from=_from, to=to).df.sort_index()
 
-    # The maximum number of symbols we can request at once is 200.
-    barset = None
-    idx = 0
-    while idx <= len(symbols) - 1:
-        if barset is None:
-            barset = get_barset(symbols[idx:idx+200])
-        else:
-            barset.update(get_barset(symbols[idx:idx+200]))
-        idx += 200
-
-    return barset.df
+    with concurrent.futures.ThreadPoolExecutor(
+            max_workers=max_workers) as executor:
+        results = {}
+        future_to_symbol = {
+            executor.submit(
+                historic_agg,
+                symbol): symbol for symbol in symbols}
+        for future in concurrent.futures.as_completed(future_to_symbol):
+            symbol = future_to_symbol[future]
+            try:
+                results[symbol] = future.result()
+            except Exception as exc:
+                logger.warning(
+                    '{} generated an exception: {}'.format(
+                        symbol, exc))
+        return results
 
 
 def prices(symbols):
@@ -57,17 +54,16 @@ def prices(symbols):
     if now.time() >= pd.Timestamp('09:30', tz=NY).time():
         end_dt = now - \
             pd.Timedelta(now.strftime('%H:%M:%S')) - pd.Timedelta('1 minute')
-    return _get_prices(symbols, end_dt)
+    return _get_polygon_prices(symbols, end_dt)
 
 
-def calc_scores(price_df, dayindex=-1):
+def calc_scores(price_map, dayindex=-1):
     '''Calculate scores based on the indicator and
     return the sorted result.
     '''
     diffs = {}
     param = 10
-    for symbol in price_df.columns.levels[0]:
-        df = price_df[symbol]
+    for symbol, df in price_map.items():
         if len(df.close.values) <= param:
             continue
         ema = df.close.ewm(span=param).mean()[dayindex]
@@ -78,20 +74,20 @@ def calc_scores(price_df, dayindex=-1):
     return sorted(diffs.items(), key=lambda x: x[1])
 
 
-def get_orders(api, price_df, position_size=100, max_positions=5):
-    '''Calculate the scores within the universe to build the optimal
-    portfolio as of today, and extract orders to transition from our
-    current portfolio to the desired state.
+def get_orders(api, price_map, position_size=100, max_positions=5):
+    '''Calculate the scores with the universe to build the optimal
+    portfolio as of today, and extract orders to transition from
+    current portfolio to the calculated state.
     '''
     # rank the stocks based on the indicators.
-    ranked = calc_scores(price_df)
+    ranked = calc_scores(price_map)
     to_buy = set()
     to_sell = set()
     account = api.get_account()
     # take the top one twentieth out of ranking,
     # excluding stocks too expensive to buy a share
     for symbol, _ in ranked[:len(ranked) // 20]:
-        price = float(price_df[symbol].close.values[-1])
+        price = float(price_map[symbol].close.values[-1])
         if price > float(account.cash):
             continue
         to_buy.add(symbol)
@@ -124,7 +120,7 @@ def get_orders(api, price_df, position_size=100, max_positions=5):
     for symbol in to_buy:
         if max_to_buy <= 0:
             break
-        shares = position_size // float(price_df[symbol].close.values[-1])
+        shares = position_size // float(price_map[symbol].close.values[-1])
         if shares == 0.0:
             continue
         orders.append({
@@ -139,11 +135,11 @@ def get_orders(api, price_df, position_size=100, max_positions=5):
 
 def trade(orders, wait=30):
     '''This is where we actually submit the orders and wait for them to fill.
-    Waiting is an important step since the orders aren't filled automatically,
-    which means if your buys happen to come before your sells have filled,
-    the buy orders will be bounced. In order to make the transition smooth,
-    we sell first and wait for all the sell orders to fill before submitting
-    our buy orders.
+    This is an important step since the orders aren't filled atomically,
+    which means if your buys come first with littme cash left in the account,
+    the buy orders will be bounced.  In order to make the transition smooth,
+    we sell first and wait for all the sell orders to fill and then submit
+    buy orders.
     '''
 
     # process the sell orders first
@@ -196,6 +192,8 @@ def trade(orders, wait=30):
 
 
 def main():
+    '''The entry point. Goes into an infinite loop and
+    start trading every morning at the market open.'''
     done = None
     logging.info('start running')
     while True:
@@ -204,14 +202,11 @@ def main():
         clock = api.get_clock()
         now = clock.timestamp
         if clock.is_open and done != now.strftime('%Y-%m-%d'):
-
-            price_df = prices(Universe)
-            orders = get_orders(api, price_df)
+            price_map = prices(Universe)
+            orders = get_orders(api, price_map)
             trade(orders)
-
             # flag it as done so it doesn't work again for the day
-            # TODO: this isn't tolerant to process restarts, so this
-            # flag should probably be saved on disk
+            # TODO: this isn't tolerant to the process restart
             done = now.strftime('%Y-%m-%d')
             logger.info(f'done for {done}')
 

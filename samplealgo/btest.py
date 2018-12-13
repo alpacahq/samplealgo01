@@ -1,5 +1,5 @@
 import pandas as pd
-from . import algo
+from . import algo_polygon as algo
 
 
 class Account(object):
