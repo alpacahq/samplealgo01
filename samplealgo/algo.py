@@ -25,8 +25,8 @@ def _get_prices(symbols, end_dt, max_workers=5):
     '''Get the map of DataFrame price data from Alpaca's data API.'''
 
     start_dt = end_dt - pd.Timedelta('50 days')
-    start = start_dt.strftime('%Y-%-m-%-d')
-    end = end_dt.strftime('%Y-%-m-%-d')
+    start = start_dt.strftime('%Y-%m-%d')
+    end = end_dt.strftime('%Y-%m-%d')
 
     def get_barset(symbols):
         return api.get_barset(
