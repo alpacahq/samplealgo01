@@ -132,7 +132,7 @@ def simulate(days=10, equity=500, position_size=100,
             symbol: df[df.index < t]
             for symbol, df in price_map.items()
             # sanity check to exclude stale prices
-            if t - df[df.index < t].index[-1] < pd.Timedelta('2 days')}
+            if df[df.index < t].size > 0 and t - df[df.index < t].index[-1] < pd.Timedelta('2 days')}
 
         # before market opens
         orders = algo.get_orders(api, snapshot,
