@@ -22,8 +22,8 @@ def _get_polygon_prices(symbols, end_dt, max_workers=5):
     '''Get the map of DataFrame price data from polygon, in parallel.'''
 
     start_dt = end_dt - pd.Timedelta('1200 days')
-    _from = start_dt.strftime('%Y-%-m-%-d')
-    to = end_dt.strftime('%Y-%-m-%-d')
+    _from = start_dt.strftime('%Y-%m-%d')
+    to = end_dt.strftime('%Y-%m-%d')
 
     def historic_agg(symbol):
         return api.polygon.historic_agg(
