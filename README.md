@@ -33,12 +33,12 @@ worker type app.
 
 ## Cutomization
 
-universe.Universe is hard-coded.  Easy customization is to change this to more dynamic
+Universe is hard-coded.  Easy customization is to change this to more dynamic
 set of stocks with some filters such as per-share price to be less than $50 or so.
 Some of the numbers are also hard-coded and it is meant to run in an account with about
-$500 deposit, with asuumption that one position to be up to $100, resulting in 5 positions
+$500 deposit, with assumption that one position to be up to $100, resulting in 5 positions
 at most.  If your account size and position size preference are different, you can
-change these valuess.
+change these values.
 
 EMA-5 is also very arbitrary choice.  You could try something like 10, too.
 
